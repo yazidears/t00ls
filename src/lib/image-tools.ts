@@ -1,20 +1,7 @@
-export type OutputFormat = "image/jpeg" | "image/png" | "image/webp"
+export type OutputFormat = "image/jpeg"
 
 export type ImageSettings = {
-  crush: number
-  blur: number
-  upscale: number
-  contrast: number
-  noise: number
-  smoothing: "pixelated" | "smooth"
-}
-
-export type ImagePreset = {
-  id: string
-  name: string
-  eyebrow: string
-  description: string
-  settings: ImageSettings
+  ruin: number
 }
 
 export type ProcessedImage = {
@@ -26,96 +13,7 @@ export type ProcessedImage = {
 }
 
 export const defaultSettings: ImageSettings = {
-  crush: 12,
-  blur: 1.4,
-  upscale: 100,
-  contrast: 108,
-  noise: 10,
-  smoothing: "pixelated",
-}
-
-export const presets: ImagePreset[] = [
-  {
-    id: "cursed-meme",
-    name: "Cursed Meme",
-    eyebrow: "Starter pack",
-    description: "Crunch the image just enough to feel suspiciously reposted.",
-    settings: {
-      crush: 12,
-      blur: 1.4,
-      upscale: 100,
-      contrast: 108,
-      noise: 10,
-      smoothing: "pixelated",
-    },
-  },
-  {
-    id: "pocket-fax",
-    name: "Pocket Fax",
-    eyebrow: "Tiny attachment",
-    description: "Soft, blurry, and very clearly sent through four apps.",
-    settings: {
-      crush: 18,
-      blur: 2.8,
-      upscale: 100,
-      contrast: 118,
-      noise: 24,
-      smoothing: "smooth",
-    },
-  },
-  {
-    id: "forum-artifact",
-    name: "Forum Artifact",
-    eyebrow: "2008 energy",
-    description: "Sharper edges, boosted size, and a threadbare internet feel.",
-    settings: {
-      crush: 9,
-      blur: 0.6,
-      upscale: 148,
-      contrast: 114,
-      noise: 8,
-      smoothing: "pixelated",
-    },
-  },
-  {
-    id: "soft-evidence",
-    name: "Soft Evidence",
-    eyebrow: "Unhelpful proof",
-    description: "The image equivalent of saying 'trust me, I saw it happen.'",
-    settings: {
-      crush: 24,
-      blur: 4.2,
-      upscale: 100,
-      contrast: 96,
-      noise: 18,
-      smoothing: "smooth",
-    },
-  },
-]
-
-export const outputFormats = [
-  { value: "image/jpeg", label: "JPG", extension: "jpg" },
-  { value: "image/png", label: "PNG", extension: "png" },
-  { value: "image/webp", label: "WEBP", extension: "webp" },
-] as const
-
-export function cloneSettings(settings: ImageSettings): ImageSettings {
-  return { ...settings }
-}
-
-export function matchesSettings(a: ImageSettings, b: ImageSettings) {
-  return (
-    a.crush === b.crush &&
-    a.blur === b.blur &&
-    a.upscale === b.upscale &&
-    a.contrast === b.contrast &&
-    a.noise === b.noise &&
-    a.smoothing === b.smoothing
-  )
-}
-
-export function findPresetId(settings: ImageSettings) {
-  return presets.find((preset) => matchesSettings(preset.settings, settings))?.id ?? "custom"
+  ruin: 88,
 }
 
 export function formatBytes(bytes: number) {
@@ -130,25 +28,23 @@ export function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
 }
 
-export function buildDownloadName(name: string, presetId: string, format: OutputFormat) {
+export function buildDownloadName(name: string, ruin: number, format: OutputFormat) {
   const cleaned = name.replace(/\.[^.]+$/, "")
-  const extension = outputFormats.find((item) => item.value === format)?.extension ?? "jpg"
+  const extension = format === "image/jpeg" ? "jpg" : "jpg"
 
-  return `${cleaned}-${presetId}.${extension}`
+  return `${cleaned}-ruined-${ruin}.${extension}`
 }
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement, format: OutputFormat) {
-  const quality = format === "image/png" ? undefined : 0.92
-
+function canvasToBlob(canvas: HTMLCanvasElement, format: OutputFormat, quality: number) {
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          reject(new Error("The browser could not export the processed image."))
+          reject(new Error("Export failed."))
           return
         }
 
@@ -160,32 +56,7 @@ function canvasToBlob(canvas: HTMLCanvasElement, format: OutputFormat) {
   })
 }
 
-function applyNoise(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  amount: number
-) {
-  if (amount <= 0) {
-    return
-  }
-
-  const imageData = context.getImageData(0, 0, width, height)
-  const intensity = amount / 100
-  const { data } = imageData
-
-  for (let index = 0; index < data.length; index += 4) {
-    const jitter = (Math.random() - 0.5) * 255 * intensity
-
-    data[index] = clamp(data[index] + jitter, 0, 255)
-    data[index + 1] = clamp(data[index + 1] + jitter, 0, 255)
-    data[index + 2] = clamp(data[index + 2] + jitter, 0, 255)
-  }
-
-  context.putImageData(imageData, 0, 0)
-}
-
-function loadImage(file: File) {
+function loadImageFromFile(file: File) {
   const url = URL.createObjectURL(file)
 
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -196,10 +67,41 @@ function loadImage(file: File) {
     }
     image.onerror = () => {
       URL.revokeObjectURL(url)
-      reject(new Error("That file could not be decoded as an image."))
+      reject(new Error("Bad image file."))
     }
     image.src = url
   })
+}
+
+function loadImageFromDataUrl(dataUrl: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error("JPEG pass failed."))
+    image.src = dataUrl
+  })
+}
+
+function ruinPass(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  ruin: number
+) {
+  const imageData = context.getImageData(0, 0, width, height)
+  const { data } = imageData
+  const quant = clamp(Math.round(10 + ruin * 0.45), 12, 56)
+  const noisePower = ruin / 100
+
+  for (let i = 0; i < data.length; i += 4) {
+    const jitter = (Math.random() - 0.5) * 255 * 0.42 * noisePower
+
+    data[i] = clamp(Math.round((data[i] + jitter) / quant) * quant, 0, 255)
+    data[i + 1] = clamp(Math.round((data[i + 1] + jitter) / quant) * quant, 0, 255)
+    data[i + 2] = clamp(Math.round((data[i + 2] + jitter) / quant) * quant, 0, 255)
+  }
+
+  context.putImageData(imageData, 0, 0)
 }
 
 export async function renderProcessedImage(
@@ -207,27 +109,49 @@ export async function renderProcessedImage(
   settings: ImageSettings,
   format: OutputFormat
 ): Promise<ProcessedImage> {
-  const image = await loadImage(file)
-  const originalWidth = image.naturalWidth || image.width
-  const originalHeight = image.naturalHeight || image.height
-  const crushedScale = settings.crush / 100
-  const crushedWidth = clamp(Math.round(originalWidth * crushedScale), 18, originalWidth)
-  const crushedHeight = clamp(Math.round(originalHeight * crushedScale), 18, originalHeight)
-  const outputWidth = clamp(Math.round(originalWidth * (settings.upscale / 100)), 48, 6000)
-  const outputHeight = clamp(Math.round(originalHeight * (settings.upscale / 100)), 48, 6000)
+  const sourceImage = await loadImageFromFile(file)
+  const ruin = clamp(settings.ruin, 1, 100)
+  const originalWidth = sourceImage.naturalWidth || sourceImage.width
+  const originalHeight = sourceImage.naturalHeight || sourceImage.height
+  const tinyScale = clamp(0.21 - ruin * 0.0019, 0.02, 0.22)
+  const tinyWidth = clamp(Math.round(originalWidth * tinyScale), 8, originalWidth)
+  const tinyHeight = clamp(Math.round(originalHeight * tinyScale), 8, originalHeight)
+  const outputScale = 1 + ruin * 0.0034
+  const outputWidth = clamp(Math.round(originalWidth * outputScale), 80, 6000)
+  const outputHeight = clamp(Math.round(originalHeight * outputScale), 80, 6000)
 
-  const crushedCanvas = document.createElement("canvas")
-  crushedCanvas.width = crushedWidth
-  crushedCanvas.height = crushedHeight
+  const tinyCanvas = document.createElement("canvas")
+  tinyCanvas.width = tinyWidth
+  tinyCanvas.height = tinyHeight
 
-  const crushedContext = crushedCanvas.getContext("2d")
+  const tinyContext = tinyCanvas.getContext("2d")
 
-  if (!crushedContext) {
-    throw new Error("The browser could not create a 2D canvas context.")
+  if (!tinyContext) {
+    throw new Error("No 2D context.")
   }
 
-  crushedContext.imageSmoothingEnabled = true
-  crushedContext.drawImage(image, 0, 0, crushedWidth, crushedHeight)
+  tinyContext.imageSmoothingEnabled = true
+  tinyContext.drawImage(sourceImage, 0, 0, tinyWidth, tinyHeight)
+
+  const cycles = clamp(2 + Math.floor(ruin / 18), 2, 7)
+  for (let cycle = 0; cycle < cycles; cycle++) {
+    const cycleQuality = clamp(0.26 - ruin * 0.0024 - cycle * 0.03, 0.02, 0.3)
+    const dataUrl = tinyCanvas.toDataURL("image/jpeg", cycleQuality)
+    const loopImage = await loadImageFromDataUrl(dataUrl)
+    const shake = cycle % 2 === 0 ? 1 : -1
+
+    tinyContext.clearRect(0, 0, tinyWidth, tinyHeight)
+    tinyContext.filter = `blur(${clamp(0.2 + ruin * 0.01, 0.2, 1.5)}px)`
+    tinyContext.drawImage(
+      loopImage,
+      shake,
+      -shake,
+      tinyWidth - shake,
+      tinyHeight + shake
+    )
+    tinyContext.filter = "none"
+    ruinPass(tinyContext, tinyWidth, tinyHeight, ruin)
+  }
 
   const outputCanvas = document.createElement("canvas")
   outputCanvas.width = outputWidth
@@ -236,16 +160,21 @@ export async function renderProcessedImage(
   const outputContext = outputCanvas.getContext("2d")
 
   if (!outputContext) {
-    throw new Error("The browser could not create an output canvas context.")
+    throw new Error("No output context.")
   }
 
-  outputContext.imageSmoothingEnabled = settings.smoothing === "smooth"
-  outputContext.filter = `blur(${settings.blur}px) contrast(${settings.contrast}%)`
-  outputContext.drawImage(crushedCanvas, 0, 0, outputWidth, outputHeight)
+  outputContext.imageSmoothingEnabled = true
+  outputContext.filter = `blur(${clamp(0.6 + ruin * 0.024, 0.7, 3.8)}px) contrast(${clamp(
+    86 + ruin * 0.35,
+    90,
+    122
+  )}%)`
+  outputContext.drawImage(tinyCanvas, 0, 0, outputWidth, outputHeight)
   outputContext.filter = "none"
-  applyNoise(outputContext, outputWidth, outputHeight, settings.noise)
+  ruinPass(outputContext, outputWidth, outputHeight, ruin)
 
-  const blob = await canvasToBlob(outputCanvas, format)
+  const finalQuality = clamp(0.24 - ruin * 0.002, 0.02, 0.25)
+  const blob = await canvasToBlob(outputCanvas, format, finalQuality)
 
   return {
     blob,

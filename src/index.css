@@ -25,33 +25,33 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --radius-sm: calc(var(--radius) - 8px);
-  --radius-md: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 3px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 8px);
+  --radius-xl: calc(var(--radius) + 6px);
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   --radius: 1rem;
-  --background: #f3f3f2;
-  --foreground: #111111;
-  --card: rgba(255, 255, 255, 0.84);
-  --card-foreground: #111111;
-  --popover: #ffffff;
-  --popover-foreground: #111111;
-  --primary: #111111;
-  --primary-foreground: #fafafa;
-  --secondary: #ececeb;
-  --secondary-foreground: #111111;
-  --muted: #ececeb;
-  --muted-foreground: #666666;
-  --accent: #111111;
-  --accent-foreground: #fafafa;
-  --destructive: #a11a1a;
-  --border: rgba(17, 17, 17, 0.1);
-  --input: rgba(17, 17, 17, 0.08);
-  --ring: rgba(17, 17, 17, 0.16);
+  --background: #040404;
+  --foreground: #f3f3f3;
+  --card: rgba(14, 14, 14, 0.88);
+  --card-foreground: #f3f3f3;
+  --popover: #111111;
+  --popover-foreground: #f3f3f3;
+  --primary: #f1f1f1;
+  --primary-foreground: #060606;
+  --secondary: #171717;
+  --secondary-foreground: #f3f3f3;
+  --muted: #101010;
+  --muted-foreground: #8a8a8a;
+  --accent: #f1f1f1;
+  --accent-foreground: #070707;
+  --destructive: #f97066;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.08);
+  --ring: rgba(255, 255, 255, 0.2);
 }
 
 * {
@@ -66,11 +66,9 @@ body {
   margin: 0;
   min-width: 320px;
   background:
-    linear-gradient(0deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.55)),
-    linear-gradient(90deg, rgba(17, 17, 17, 0.025) 1px, transparent 1px),
-    linear-gradient(rgba(17, 17, 17, 0.025) 1px, transparent 1px),
-    #f3f3f2;
-  background-size: auto, 24px 24px, 24px 24px, auto;
+    radial-gradient(circle at 12% -10%, rgba(255, 255, 255, 0.08), transparent 40%),
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.04), transparent 32%),
+    linear-gradient(180deg, #090909 0%, #040404 72%);
   color: var(--foreground);
   font-family: var(--font-sans);
   font-synthesis: none;
@@ -96,5 +94,5 @@ img {
 }
 
 ::selection {
-  background: rgba(17, 17, 17, 0.14);
+  background: rgba(255, 255, 255, 0.2);
 }
