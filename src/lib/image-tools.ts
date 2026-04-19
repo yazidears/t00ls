@@ -13,7 +13,7 @@ export type ProcessedImage = {
 }
 
 export const defaultSettings: ImageSettings = {
-  ruin: 88,
+  ruin: 94,
 }
 
 export function formatBytes(bytes: number) {
@@ -100,44 +100,47 @@ export async function renderProcessedImage(
   const originalWidth = sourceImage.naturalWidth || sourceImage.width
   const originalHeight = sourceImage.naturalHeight || sourceImage.height
 
-  const detailScale = clamp(0.92 - ruin * 0.0037, 0.5, 0.9)
-  const detailWidth = clamp(Math.round(originalWidth * detailScale), 24, originalWidth)
-  const detailHeight = clamp(Math.round(originalHeight * detailScale), 24, originalHeight)
-  const baseQuality = clamp(0.46 - ruin * 0.0041, 0.04, 0.35)
-  const passCount = Math.round(clamp(2 + (ruin - 55) / 10, 2, 7))
+  const tinyScale = clamp(0.18 - ruin * 0.0016, 0.01, 0.14)
+  const tinyWidth = clamp(Math.round(originalWidth * tinyScale), 8, originalWidth)
+  const tinyHeight = clamp(Math.round(originalHeight * tinyScale), 8, originalHeight)
+  const baseQuality = clamp(0.22 - ruin * 0.0018, 0.01, 0.16)
+  const passCount = Math.round(clamp(4 + (ruin - 55) / 7, 4, 12))
 
-  const detailCanvas = document.createElement("canvas")
-  detailCanvas.width = detailWidth
-  detailCanvas.height = detailHeight
-  const detailContext = detailCanvas.getContext("2d")
+  const tinyCanvas = document.createElement("canvas")
+  tinyCanvas.width = tinyWidth
+  tinyCanvas.height = tinyHeight
+  const tinyContext = tinyCanvas.getContext("2d")
 
   const workCanvas = document.createElement("canvas")
   workCanvas.width = originalWidth
   workCanvas.height = originalHeight
   const workContext = workCanvas.getContext("2d")
 
-  if (!detailContext || !workContext) {
+  if (!tinyContext || !workContext) {
     throw new Error("No 2D context.")
   }
 
-  detailContext.imageSmoothingEnabled = true
-  detailContext.drawImage(sourceImage, 0, 0, detailWidth, detailHeight)
+  tinyContext.imageSmoothingEnabled = true
+  tinyContext.clearRect(0, 0, tinyWidth, tinyHeight)
+  tinyContext.drawImage(sourceImage, 0, 0, tinyWidth, tinyHeight)
 
-  workContext.imageSmoothingEnabled = true
+  // Upscale back to original size using nearest-neighbor to keep large blocks.
+  workContext.imageSmoothingEnabled = false
   workContext.clearRect(0, 0, originalWidth, originalHeight)
-  workContext.drawImage(detailCanvas, 0, 0, originalWidth, originalHeight)
+  workContext.drawImage(tinyCanvas, 0, 0, originalWidth, originalHeight)
 
-  // Re-encode several times at low JPEG quality for visible compression artifacts.
+  // Re-encode repeatedly at very low quality for heavy compression artifacts.
   for (let pass = 0; pass < passCount; pass += 1) {
-    const passQuality = clamp(baseQuality - pass * 0.03, 0.02, baseQuality)
+    const passQuality = clamp(baseQuality - pass * 0.012, 0.005, baseQuality)
     const passBlob = await canvasToBlob(workCanvas, format, passQuality)
     const passImage = await loadImageFromBlob(passBlob)
 
+    workContext.imageSmoothingEnabled = false
     workContext.clearRect(0, 0, originalWidth, originalHeight)
     workContext.drawImage(passImage, 0, 0, originalWidth, originalHeight)
   }
 
-  const finalQuality = clamp(baseQuality * 0.84, 0.02, 0.3)
+  const finalQuality = clamp(baseQuality * 0.55, 0.005, 0.12)
   const blob = await canvasToBlob(workCanvas, format, finalQuality)
 
   return {
