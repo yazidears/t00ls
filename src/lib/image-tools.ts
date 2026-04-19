@@ -73,6 +73,23 @@ function loadImageFromFile(file: File) {
   })
 }
 
+function loadImageFromBlob(blob: Blob) {
+  const url = URL.createObjectURL(blob)
+
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => {
+      URL.revokeObjectURL(url)
+      resolve(image)
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error("Bad encoded image."))
+    }
+    image.src = url
+  })
+}
+
 export async function renderProcessedImage(
   file: File,
   settings: ImageSettings,
@@ -83,29 +100,51 @@ export async function renderProcessedImage(
   const originalWidth = sourceImage.naturalWidth || sourceImage.width
   const originalHeight = sourceImage.naturalHeight || sourceImage.height
 
-  const tinyScale = clamp(0.25 - ruin * 0.0023, 0.02, 0.24)
-  const tinyWidth = clamp(Math.round(originalWidth * tinyScale), 8, originalWidth)
-  const tinyHeight = clamp(Math.round(originalHeight * tinyScale), 8, originalHeight)
+  const detailScale = clamp(0.92 - ruin * 0.0037, 0.5, 0.9)
+  const detailWidth = clamp(Math.round(originalWidth * detailScale), 24, originalWidth)
+  const detailHeight = clamp(Math.round(originalHeight * detailScale), 24, originalHeight)
+  const baseQuality = clamp(0.46 - ruin * 0.0041, 0.04, 0.35)
+  const passCount = Math.round(clamp(2 + (ruin - 55) / 10, 2, 7))
 
-  const tinyCanvas = document.createElement("canvas")
-  tinyCanvas.width = tinyWidth
-  tinyCanvas.height = tinyHeight
+  const detailCanvas = document.createElement("canvas")
+  detailCanvas.width = detailWidth
+  detailCanvas.height = detailHeight
+  const detailContext = detailCanvas.getContext("2d")
 
-  const tinyContext = tinyCanvas.getContext("2d")
+  const workCanvas = document.createElement("canvas")
+  workCanvas.width = originalWidth
+  workCanvas.height = originalHeight
+  const workContext = workCanvas.getContext("2d")
 
-  if (!tinyContext) {
+  if (!detailContext || !workContext) {
     throw new Error("No 2D context.")
   }
 
-  tinyContext.imageSmoothingEnabled = true
-  tinyContext.drawImage(sourceImage, 0, 0, tinyWidth, tinyHeight)
-  const blob = await canvasToBlob(tinyCanvas, format, 1)
+  detailContext.imageSmoothingEnabled = true
+  detailContext.drawImage(sourceImage, 0, 0, detailWidth, detailHeight)
+
+  workContext.imageSmoothingEnabled = true
+  workContext.clearRect(0, 0, originalWidth, originalHeight)
+  workContext.drawImage(detailCanvas, 0, 0, originalWidth, originalHeight)
+
+  // Re-encode several times at low JPEG quality for visible compression artifacts.
+  for (let pass = 0; pass < passCount; pass += 1) {
+    const passQuality = clamp(baseQuality - pass * 0.03, 0.02, baseQuality)
+    const passBlob = await canvasToBlob(workCanvas, format, passQuality)
+    const passImage = await loadImageFromBlob(passBlob)
+
+    workContext.clearRect(0, 0, originalWidth, originalHeight)
+    workContext.drawImage(passImage, 0, 0, originalWidth, originalHeight)
+  }
+
+  const finalQuality = clamp(baseQuality * 0.84, 0.02, 0.3)
+  const blob = await canvasToBlob(workCanvas, format, finalQuality)
 
   return {
     blob,
     url: URL.createObjectURL(blob),
-    width: tinyWidth,
-    height: tinyHeight,
+    width: originalWidth,
+    height: originalHeight,
     bytes: blob.size,
   }
 }
