@@ -73,37 +73,6 @@ function loadImageFromFile(file: File) {
   })
 }
 
-function loadImageFromDataUrl(dataUrl: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error("JPEG pass failed."))
-    image.src = dataUrl
-  })
-}
-
-function ruinPass(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  ruin: number
-) {
-  const imageData = context.getImageData(0, 0, width, height)
-  const { data } = imageData
-  const quant = clamp(Math.round(10 + ruin * 0.45), 12, 56)
-  const noisePower = ruin / 100
-
-  for (let i = 0; i < data.length; i += 4) {
-    const jitter = (Math.random() - 0.5) * 255 * 0.42 * noisePower
-
-    data[i] = clamp(Math.round((data[i] + jitter) / quant) * quant, 0, 255)
-    data[i + 1] = clamp(Math.round((data[i + 1] + jitter) / quant) * quant, 0, 255)
-    data[i + 2] = clamp(Math.round((data[i + 2] + jitter) / quant) * quant, 0, 255)
-  }
-
-  context.putImageData(imageData, 0, 0)
-}
-
 export async function renderProcessedImage(
   file: File,
   settings: ImageSettings,
@@ -113,12 +82,13 @@ export async function renderProcessedImage(
   const ruin = clamp(settings.ruin, 1, 100)
   const originalWidth = sourceImage.naturalWidth || sourceImage.width
   const originalHeight = sourceImage.naturalHeight || sourceImage.height
-  const tinyScale = clamp(0.21 - ruin * 0.0019, 0.02, 0.22)
+
+  const tinyScale = clamp(0.25 - ruin * 0.0023, 0.02, 0.24)
   const tinyWidth = clamp(Math.round(originalWidth * tinyScale), 8, originalWidth)
   const tinyHeight = clamp(Math.round(originalHeight * tinyScale), 8, originalHeight)
-  const outputScale = 1 + ruin * 0.0034
-  const outputWidth = clamp(Math.round(originalWidth * outputScale), 80, 6000)
-  const outputHeight = clamp(Math.round(originalHeight * outputScale), 80, 6000)
+
+  const outputWidth = clamp(Math.round(originalWidth), 80, 6000)
+  const outputHeight = clamp(Math.round(originalHeight), 80, 6000)
 
   const tinyCanvas = document.createElement("canvas")
   tinyCanvas.width = tinyWidth
@@ -133,26 +103,6 @@ export async function renderProcessedImage(
   tinyContext.imageSmoothingEnabled = true
   tinyContext.drawImage(sourceImage, 0, 0, tinyWidth, tinyHeight)
 
-  const cycles = clamp(2 + Math.floor(ruin / 18), 2, 7)
-  for (let cycle = 0; cycle < cycles; cycle++) {
-    const cycleQuality = clamp(0.26 - ruin * 0.0024 - cycle * 0.03, 0.02, 0.3)
-    const dataUrl = tinyCanvas.toDataURL("image/jpeg", cycleQuality)
-    const loopImage = await loadImageFromDataUrl(dataUrl)
-    const shake = cycle % 2 === 0 ? 1 : -1
-
-    tinyContext.clearRect(0, 0, tinyWidth, tinyHeight)
-    tinyContext.filter = `blur(${clamp(0.2 + ruin * 0.01, 0.2, 1.5)}px)`
-    tinyContext.drawImage(
-      loopImage,
-      shake,
-      -shake,
-      tinyWidth - shake,
-      tinyHeight + shake
-    )
-    tinyContext.filter = "none"
-    ruinPass(tinyContext, tinyWidth, tinyHeight, ruin)
-  }
-
   const outputCanvas = document.createElement("canvas")
   outputCanvas.width = outputWidth
   outputCanvas.height = outputHeight
@@ -163,18 +113,11 @@ export async function renderProcessedImage(
     throw new Error("No output context.")
   }
 
+  // Exact behavior requested: downscale first, then scale back up.
   outputContext.imageSmoothingEnabled = true
-  outputContext.filter = `blur(${clamp(0.6 + ruin * 0.024, 0.7, 3.8)}px) contrast(${clamp(
-    86 + ruin * 0.35,
-    90,
-    122
-  )}%)`
   outputContext.drawImage(tinyCanvas, 0, 0, outputWidth, outputHeight)
-  outputContext.filter = "none"
-  ruinPass(outputContext, outputWidth, outputHeight, ruin)
 
-  const finalQuality = clamp(0.24 - ruin * 0.002, 0.02, 0.25)
-  const blob = await canvasToBlob(outputCanvas, format, finalQuality)
+  const blob = await canvasToBlob(outputCanvas, format, 0.92)
 
   return {
     blob,
