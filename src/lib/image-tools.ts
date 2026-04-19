@@ -87,9 +87,6 @@ export async function renderProcessedImage(
   const tinyWidth = clamp(Math.round(originalWidth * tinyScale), 8, originalWidth)
   const tinyHeight = clamp(Math.round(originalHeight * tinyScale), 8, originalHeight)
 
-  const outputWidth = clamp(Math.round(originalWidth), 80, 6000)
-  const outputHeight = clamp(Math.round(originalHeight), 80, 6000)
-
   const tinyCanvas = document.createElement("canvas")
   tinyCanvas.width = tinyWidth
   tinyCanvas.height = tinyHeight
@@ -102,28 +99,13 @@ export async function renderProcessedImage(
 
   tinyContext.imageSmoothingEnabled = true
   tinyContext.drawImage(sourceImage, 0, 0, tinyWidth, tinyHeight)
-
-  const outputCanvas = document.createElement("canvas")
-  outputCanvas.width = outputWidth
-  outputCanvas.height = outputHeight
-
-  const outputContext = outputCanvas.getContext("2d")
-
-  if (!outputContext) {
-    throw new Error("No output context.")
-  }
-
-  // Exact behavior requested: downscale first, then scale back up.
-  outputContext.imageSmoothingEnabled = true
-  outputContext.drawImage(tinyCanvas, 0, 0, outputWidth, outputHeight)
-
-  const blob = await canvasToBlob(outputCanvas, format, 0.92)
+  const blob = await canvasToBlob(tinyCanvas, format, 1)
 
   return {
     blob,
     url: URL.createObjectURL(blob),
-    width: outputWidth,
-    height: outputHeight,
+    width: tinyWidth,
+    height: tinyHeight,
     bytes: blob.size,
   }
 }
